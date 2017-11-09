@@ -1,4 +1,5 @@
-import $ from 'jquery';
+import $ from 'jquery'; // DISABLE ON PRODUCTION
+// var $ = jQuery.noConflict(); // ENABLE ON PRODUCTION
 
 //------------------------------------------------------------------------------
 // FORM CLASS:
@@ -134,6 +135,7 @@ PGCustomValidationForm.prototype.clearErrors = function() {
 }
 
 PGCustomValidationForm.prototype.gatherCustomerData = function() {
+  // Gather and sanitize customer data
   this.customerData = {
     name: this.name[0].value.trim(),
     postalCode: this.postalCode[0].value.trim(),
@@ -269,7 +271,7 @@ PGCustomValidationForm.prototype.getJsonObjectOrUndefined = function(input) {
     return input;
   }
 
-  // In case, input is a valid JSON string, so return the parsed object
+  // In case input is a valid JSON string, return the parsed object
   if (input && typeof input === 'string' && this.isJsonString.apply(this, [input])) {
     return JSON.parse(input);
   }
@@ -278,18 +280,113 @@ PGCustomValidationForm.prototype.getJsonObjectOrUndefined = function(input) {
   return;
 }
 
+PGCustomValidationForm.prototype.isValidInstaller = function(installer) {
+  // Check that all required fields are present and are not empty strings
+
+  if (!installer || typeof installer !== 'object') {
+    return false;
+  }
+
+  var requiredFields = [
+    'logo',
+    'companyName',
+    'city',
+    'postalCode',
+    'addressOne',
+    // 'addressTwo', // not required
+    'phoneNumber',
+    'email',
+  ];
+
+  var valid = true;
+  for (var i = 0; i < requiredFields.length; i++) {
+    var fieldValue = installer[requiredFields[i]];
+    if (!fieldValue || fieldValue.trim().length === 0) {
+      valid = false;
+    }
+  }
+
+  return valid;
+}
+
+PGCustomValidationForm.prototype.handleSuccessAJAXResponse = function(res) {
+  console.log('AJAX success response', res);
+  var self = this;
+
+  // Sanitize response, get valid JSON object
+  var jsonRes = self.getJsonObjectOrUndefined.apply(self, [res]);
+
+  // Make sure response is a valid JSON object, and 'status' and 'message'
+  // keys are present
+  if (!jsonRes || !jsonRes.status || !jsonRes.message) {
+    self.displayInstaller.apply(self, [self.defaultInstaller]);
+    // Throw error so that it can be caught by sentry.io
+    throw new Error('Sucess response is invalid');
+  }
+
+  // Validate status field
+  var status = jsonRes.status;
+  if (!status || typeof status !== 'string' || (status !== 'success' && status !== 'fail')) {
+    self.displayInstaller.apply(self, [self.defaultInstaller]);
+    // Throw error so that it can be caught by sentry.io
+    throw new Error('Sucess response status is undefined, not string or has an invalid value', status);
+  }
+
+  // Handle status = 'fail'
+  if (status === 'fail') {
+    self.displayInstaller.apply(self, [self.defaultInstaller]);
+    // Throw error so that it can be caught by sentry.io
+    throw new Error('Sucess response status fail');
+  }
+
+  //--------------------------------
+  // From here on status = 'success'
+  //--------------------------------
+
+  // Sanitize response.message (installer's data), get valid JSON object
+  var customInstaller = self.getJsonObjectOrUndefined.apply(self, [jsonRes.message]);
+
+  // Make sure installer is a valid JSON object
+  if (!customInstaller) {
+    self.displayInstaller.apply(self, [self.defaultInstaller]);
+    // Throw error so that it can be caught by sentry.io
+    throw new Error('Sucess response.message is invalid');
+  }
+
+  // Display custom installer, if and only if, all required fields are present...
+  if (self.isValidInstaller.apply(self, [customInstaller])) {
+    console.log('Returning custom installer');
+    self.displayInstaller.apply(self, [customInstaller]);
+    return;
+  }
+
+  // Otherwise, return default installer
+  self.displayInstaller.apply(self, [self.defaultInstaller]);
+  // Throw error so that it can be caught by sentry.io
+  throw new Error('Returnning default installer, at least one of the custom installer\'s fields is not present');
+}
+
+PGCustomValidationForm.prototype.handleErrorAJAXResponse = function(res) {
+  console.log('AJAX error response', res);
+  var self = this;
+
+  // If we get an error from the AJAX response, return default installer
+  self.displayInstaller.apply(self, [self.defaultInstaller]);
+  // Throw error so that it can be caught by sentry.io
+  throw new Error('AJAX error response', res);
+}
+
 PGCustomValidationForm.prototype.performAJAXCall = function() {
+  console.log('Fire AJAX call :)');
   var self = this;
 
   // Attach action type to customerData for the AJAX call
   var data = self.customerData;
   data.action = 'form_submit';
 
-  console.log('Fire AJAX call :)');
-
   $.ajax({
-    // url: 'http://localhost:3000/api/v1/mock-insert-customer', // DISABLE ON PRODUCTION!
-    url: vars.ajax_url, // ENABLE ON PRODUCTION!
+    url: 'http://localhost:3000/api/v1/mock-insert-customer', // DISABLE ON PRODUCTION!
+    // url: vars.ajax_url, // ENABLE ON PRODUCTION!
     // crossDomain: true, // DISABLE ON PRODUCTION!
     type: 'post',
     data: data,
@@ -297,78 +394,11 @@ PGCustomValidationForm.prototype.performAJAXCall = function() {
       self.submitBtn.val('SUBMITTING');
     },
     success: function(res) {
-      // res = JSON.stringify(res);
-      console.log('AJAX success response', res);
-
-      // Sanitize response, get valid JSON object
-      var jsonRes = self.getJsonObjectOrUndefined.apply(self, [res]);
-
-      // Make sure response is a valid JSON object, and 'status' and 'message'
-      // keys are present
-      if (!jsonRes || !jsonRes.status || !jsonRes.message) {
-        self.displayInstaller.apply(self, [self.defaultInstaller]);
-        // Throw error so that it can be catch by sentry.io
-        throw new Error('Sucess response is invalid');
-      }
-
-      // Validate status field
-      var status = jsonRes.status;
-      if (!status || typeof status !== 'string' || (status !== 'success' && status !== 'fail')) {
-        self.displayInstaller.apply(self, [self.defaultInstaller]);
-        // Throw error so that it can be catch by sentry.io
-        throw new Error('Sucess response status is undefined, not string or has an invalid value', status);
-      }
-
-      // Handle status = 'fail'
-      if (status === 'fail') {
-        self.displayInstaller.apply(self, [self.defaultInstaller]);
-        // Throw error so that it can be catch by sentry.io
-        throw new Error('Sucess response status fail');
-      }
-
-      //--------------------------------
-      // From here on status = 'success'
-      //--------------------------------
-
-      // Sanitize response.message (installer's data), get valid JSON object
-      var customInstaller = self.getJsonObjectOrUndefined.apply(self, [jsonRes.message]);
-
-      // Make sure installer is a valid JSON object
-      if (!customInstaller) {
-        self.displayInstaller.apply(self, [self.defaultInstaller]);
-        // Throw error so that it can be catch by sentry.io
-        throw new Error('Sucess response.message is invalid');
-      }
-
-      // Destructure custom installer's data
-      var logo = customInstaller.logo;
-      var companyName = customInstaller.companyName;
-      var city = customInstaller.city;
-      var postalCode = customInstaller.postalCode;
-      var addressOne = customInstaller.addressOne;
-      var addressTwo = customInstaller.addressTwo || ''; // not required, sanitize field
-      var phoneNumber = customInstaller.phoneNumber;
-      var email = customInstaller.email;
-
-      // Display custom installer if and only if all required fields are present...
-      if (logo && logo.length > 0 && companyName && companyName.length > 0 &&
-          city && city.length > 0 && postalCode && postalCode.length > 0 &&
-          addressOne && addressOne.length > 0 && phoneNumber && phoneNumber.length > 0 &&
-          email && email.length > 0
-        ) {
-        console.log('Returning custom installer');
-        self.displayInstaller.apply(self, [customInstaller]);
-        return;
-      }
-
-      self.displayInstaller.apply(self, [self.defaultInstaller]);
-      // Throw error so that it can be catch by sentry.io
-      throw new Error('Returnning default installer, at least one of the custom installer\'s fields is not present');
+      // res = JSON.stringify(res); // FOR TESTING ONLY
+      self.handleSuccessAJAXResponse.apply(self, [res])
     },
     error: function(res) {
-      self.displayInstaller.apply(self, [self.defaultInstaller]);
-      // Throw error so that it can be catch by sentry.io
-      throw new Error('AJAX error response', res);
+      self.handleErrorAJAXResponse.apply(self, [res])
     }
   });
 }
