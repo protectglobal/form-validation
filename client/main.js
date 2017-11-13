@@ -97,7 +97,7 @@ PGCustomValidationForm.prototype.checkElementsLoaded = function() {
 }
 
 PGCustomValidationForm.prototype.getCustomerIP = function() {
-  // Get user IP address and attach it to user data
+  // Get customer IP address and attach it to customer's data
   var self = this;
 
   try {
