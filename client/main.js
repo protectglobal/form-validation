@@ -45,7 +45,9 @@ PGCustomValidationForm.prototype.handleSubmit = function() {
   }
 
   // Log state
-  console.log('all form element were loaded correctly!');
+  console.log('All form element were loaded correctly!');
+
+  this.getCustomerIP.apply(this);
 
   // Attach 'click' event listener to submit button
   this.submitBtn.click(function (evt) {
@@ -53,7 +55,7 @@ PGCustomValidationForm.prototype.handleSubmit = function() {
     evt.preventDefault();
 
     // Log event
-    console.log('submit button clicked!');
+    console.log('Submiting form...');
 
     self.disableFormFields.apply(self);
 
@@ -94,13 +96,19 @@ PGCustomValidationForm.prototype.checkElementsLoaded = function() {
   return true;
 }
 
-PGCustomValidationForm.prototype.trackGAEvent = function() {
+PGCustomValidationForm.prototype.getCustomerIP = function() {
+  // Get user IP address and attach it to user data
+  var self = this;
+
   try {
-    ga('send', 'event', { eventCategory: 'Contact Form', eventAction: 'Submit', eventLabel: 'Protect My Place Form' });
-    window.uetq = window.uetq || [];
-    window.uetq.push({ 'ec': 'button', 'ea': 'click', 'el': 'submit', 'ev': '1' });
+    // See: https://ipinfo.io/developers
+    $.get('https://ipinfo.io', function(response) {
+      self.customerData = {
+        ipAddress: (response && response.ip) || '',
+      };
+    }, 'jsonp');
   } catch (exc) {
-    console.log('GA throwed up an error', exc);
+    console.log('Couldn\'t get user IP', exc);
   }
 }
 
@@ -137,10 +145,11 @@ PGCustomValidationForm.prototype.clearErrors = function() {
 PGCustomValidationForm.prototype.gatherCustomerData = function() {
   // Gather and sanitize customer data
   this.customerData = {
-    name: this.name[0].value.trim(),
-    postalCode: this.postalCode[0].value.trim(),
-    email: this.email[0].value.trim(),
-    phoneNumber: this.phoneNumber[0].value.trim(),
+    name: this.name[0].value.trim() || '',
+    postalCode: this.postalCode[0].value.trim() || '',
+    email: this.email[0].value.trim() || '',
+    phoneNumber: this.phoneNumber[0].value.trim() || '',
+    ipAddress: this.customerData.ipAddress.trim() || '',
   };
 }
 
@@ -151,6 +160,7 @@ PGCustomValidationForm.prototype.logCustomerData = function() {
     '\nPostal Code:', this.customerData.postalCode,
     '\nEmail:', this.customerData.email,
     '\nPhone Number:', this.customerData.phoneNumber,
+    '\nIP Address:', this.customerData.ipAddress,
   );
 }
 
@@ -229,6 +239,16 @@ PGCustomValidationForm.prototype.displayErrorOnUI = function(error) {
   this[elemNameError].show();
   this[elemNameError].css('color', 'red');
   this[elemNameError].html(errorMsg);
+}
+
+PGCustomValidationForm.prototype.trackGAEvent = function() {
+  try {
+    ga('send', 'event', { eventCategory: 'Contact Form', eventAction: 'Submit', eventLabel: 'Protect My Place Form' });
+    window.uetq = window.uetq || [];
+    window.uetq.push({ 'ec': 'button', 'ea': 'click', 'el': 'submit', 'ev': '1' });
+  } catch (exc) {
+    console.log('GA throwed up an error', exc);
+  }
 }
 
 PGCustomValidationForm.prototype.displayInstaller = function(installer) {

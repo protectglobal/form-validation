@@ -80,7 +80,7 @@ ApiV1.addRoute('mock-insert-customer', { authRequired: false }, {
       console.log('API mock-insert-customer this.bodyParams', this.bodyParams);
 
       // Destructure
-      const { name, postalCode, phoneNumber, email } = this.bodyParams;
+      const { name, postalCode, phoneNumber, email, ipAddress } = this.bodyParams;
 
       // Ensure string
       const newCustomer = {
@@ -88,6 +88,7 @@ ApiV1.addRoute('mock-insert-customer', { authRequired: false }, {
         postalCode: (postalCode && String(postalCode).trim()) || '',
         phoneNumber: (phoneNumber && String(phoneNumber).trim()) || '',
         email: (email && String(email).trim()) || '',
+        ipAddress: (ipAddress && String(ipAddress).trim()) || '',
       };
 
       /* const headers = {
@@ -103,8 +104,8 @@ ApiV1.addRoute('mock-insert-customer', { authRequired: false }, {
       // const TEST_TYPE = 'fail4'; // statusCode === 400
       // const TEST_TYPE = 'success1'; // default installer, all fields present
       // const TEST_TYPE = 'success2'; // default installer, missing field
-      const TEST_TYPE = 'success3'; // custom installer, all fields present
-      // const TEST_TYPE = 'success4'; // custom installer, missing field
+      // const TEST_TYPE = 'success3'; // custom installer, all fields present
+      const TEST_TYPE = 'success4'; // custom installer, missing field
 
       if (TEST_TYPE === 'fail1') {
         return {
